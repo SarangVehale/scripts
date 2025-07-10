@@ -29,7 +29,6 @@ Remap your **Caps Lock** key to act as the **Super/Windows/Command key**, across
    ```bash
    chmod +x remap_caps_to_super.sh
    ./remap_caps_to_super.sh
-````
 
 3. Select your external keyboard when prompted.
 4. Reboot or replug the keyboard to apply the changes.
