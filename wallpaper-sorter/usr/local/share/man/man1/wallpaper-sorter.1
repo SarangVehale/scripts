@@ -1,0 +1,74 @@
+.TH WALLPAPER-SORTER 1 "August 2025" "v1.0" "User Commands"
+.SH NAME
+wallpaper-sorter \- classify and organize wallpapers into day and night folders based on brightness
+
+.SH SYNOPSIS
+.B wallpaper-sorter
+[\fIOPTIONS\fR]
+
+.SH DESCRIPTION
+This script sorts images in a wallpapers directory into
+two subfolders: \fBday\fR and \fBnight\fR, based on
+their brightness. It supports interactive conflict
+resolution, folder cleanup, and scheduling via systemd
+timers or cron jobs.
+
+.SH OPTIONS
+.TP
+\fB--force\fR
+Overwrite duplicate files without prompting.
+.TP
+\fB--verbose\fR
+Enable verbose logging to stdout.
+.TP
+\fB--dry-run\fR
+Simulate actions without making any changes.
+.TP
+\fB--only-folder \fIFOLDER\fR
+Process only images inside the specified subfolder.
+.TP
+\fB--loop\fR
+Run the sorting process continuously every hour.
+.TP
+\fB--setup-timer\fR
+Install and start a systemd user timer to run sorting every 30 minutes.
+.TP
+\fB--setup-cron\fR
+Install a cron job to run sorting every 30 minutes.
+.TP
+\fB--help\fR
+Display this help message and exit.
+
+.SH INTERACTIVE MODE
+If run without any options, the script displays an interactive menu
+allowing the user to select actions such as running sorting once,
+running continuously, setting up timers or cron jobs, or exiting.
+
+.SH DUPLICATE HANDLING
+If a file with the same name exists in the target folder,
+the script prompts the user to rename the file, mass rename all
+duplicates, or skip moving the file. This can be overridden by
+using \fB--force\fR to overwrite automatically.
+
+.SH FOLDER CLEANUP
+The script removes empty leftover folders automatically.
+For non-empty folders, it lists contents and prompts for
+confirmation before deletion, defaulting to skip.
+
+.SH LOGGING
+All operations and warnings are logged to
+\fB~/.cache/wallpaper_sorter.log\fR.
+
+.SH DEPENDENCIES
+Requires ImageMagick (\fBconvert\fR) for brightness calculation.
+
+.SH AUTHOR
+Your Name <your.email@example.com>
+
+.SH REPORTING BUGS
+Report bugs or feature requests to <your.email@example.com>.
+
+.SH COPYRIGHT
+MIT License
+
+
