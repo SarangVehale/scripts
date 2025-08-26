@@ -1,0 +1,13 @@
+[Unit]
+Description=Auto-sync notes to OneDrive and Raspberry pi
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/bin/bash -c '~/.local/bin/notes_autosync.sh'
+Restart=always
+RestartSec=10
+Environment=PATH=%h/.local/bin/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target

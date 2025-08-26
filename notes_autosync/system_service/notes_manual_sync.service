@@ -1,0 +1,10 @@
+[Unit]
+Description=Manual one-shot notes sync (OneDrive + Pi)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/notes_sync_now.sh
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target

@@ -1,21 +1,25 @@
-# Notes Autosync
+# Notes autosync
 
 ## Obsidian + Neovim Autosync
 
-**One folder. Versioned. Autosynced to Onedrive and a Raspberry Pi (for redundancy). Accessible on Android with Obsidian Mobile.**
-This README walks you from zero -> fully working setup.
+**One folder. Versioned. Autosynced to OneDrive (and optionally Raspberry Pi for redundancy). Accessible on Android with Obsidian Mobile.**
+This README walks you from zero → fully working setup.
 
 ### What you'll get
 
 - **Editing:** Neovim and Obsidian Desktop on the same `~/notes` folder
 - **Version control:** local Git commits on every change
-- **Autosync:**(near real time)
-  - to **OneDrive** via `rclone`.
-  - to **Rasberry pi** (over SSH) via `rclone` SFTP(alt: `rsync`)
-- **Android:** local two-way sync+Obsidian Mobile vault
-- **Resilient:** systemd user service starts at login; retries on network drops.
+- **Autosync:** (near real time)
+  - to **OneDrive** via `rclone`
+  - to **Raspberry Pi** (over SSH) via `rclone` SFTP (**optional**, pre-commented in script for later use)
+
+- **Manual sync option:** run `syncnotes` to push/pull on demand
+- **Android:** local two-way sync + Obsidian Mobile vault
+- **Resilient:** systemd user service starts at login; retries on network drops
 
 Works great on Linux Desktop. Notes for MacOS/Windows are at the end.
+
+---
 
 ### Prerequisites (Desktop)
 
@@ -30,14 +34,16 @@ curl -fsSL https://rclone.org/install.sh | sudo bash
 - rclone: cloud and SSH/SFTP sync
 - rsync: optional alternative for Pi
 
-Create your notes folder
+Create your notes folder:
 
 ```bash
 mkdir -p ~/notes
 cd ~/notes && git init && git add . && git commit -m "Initial commit"
 ```
 
-### OneDrive setup(with rclone)
+---
+
+### OneDrive setup (with rclone)
 
 1. Start config:
 
@@ -45,14 +51,21 @@ cd ~/notes && git init && git add . && git commit -m "Initial commit"
    rclone config
    ```
 
-2. Choos: `n` **New Remote** -> name it `onedrive`.
+2. Choose: `n` **New Remote** → name it `onedrive`.
+
 3. **Storage:** pick **38) Microsoft OneDrive**
-4. Leave `client_id`, `client_secret`, `tenant` empty -> **Enter**
-5. **Edit Advanced Config?** -> `n`
-6. **Use web browser to authenticate?** -> `y` and log in to your Microsoft account.
-7. **Type of connection** -> `1`(OneDrive Personal or Business)
-8. **Select drive you want to use** -> Choose the entry named `OneDrive(personal)`
-9. Confirm: `Is this okay?` -> `y` -> `Keep this remote?` -> `y`
+
+4. Leave `client_id`, `client_secret`, `tenant` empty → **Enter**
+
+5. **Edit Advanced Config?** → `n`
+
+6. **Use web browser to authenticate?** → `y` and log in to your Microsoft account
+
+7. **Type of connection** → `1` (OneDrive Personal or Business)
+
+8. **Select drive you want to use** → pick the entry labeled _OneDrive (personal)_
+
+9. Confirm: `Is this okay?` → `y` → `Keep this remote?` → `y`
 
 Test it:
 
@@ -60,20 +73,24 @@ Test it:
 rclone lsd onedrive:
 ```
 
-You should see top-level Onedrive folders. Create the target folder and push the first copy:
+You should see top-level OneDrive folders. Create the target folder and push the first copy:
 
 ```bash
 rclone mkdir onedrive:notes
 rclone sync ~/notes onedrive:notes
 ```
 
-If you don't see `notes` in the mobile app, pull to refresh after the first sync.
+If you don’t see `notes` in the OneDrive app, pull to refresh after the first sync.
 
-### Raspberry Pi setup (SSH + SFTP via `rclone`)
+---
 
-We'll sync over **SSH** using `rclone`'s a SFTP backend. It's simple and secure
+### Raspberry Pi setup (SSH + SFTP via rclone)
 
-**On the PI**
+_(Optional – skip for now, code is commented in script)_
+
+We’ll sync over **SSH** using `rclone`’s SFTP backend.
+
+**On the Pi:**
 
 ```bash
 sudo pacman -Syu
@@ -82,48 +99,47 @@ systemctl enable --now ssh
 mkdir -p /home/pi/notes
 ```
 
-**On your desktop: SSH keys**
+**On your desktop:**
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
 ssh-copy-id pi@<PI_HOSTNAME_OR_IP>
-# sanity check
 ssh pi@<PI_HOSTNAME_OR_IP> 'echo ok; mkdir -p ~/notes'
 ```
 
-\*\*Create the `pi` remote in rclone(SFTP)
+Then create the `pi` remote in rclone:
 
 ```bash
 rclone config
-# nj New remote -> name:pi
+# n → New remote → name: pi
 # Storage: sftp
 # host: <PI_HOSTNAME_OR_IP>
 # user: pi
 # port: (Enter for 22)
-# Choose key-based auth -> auto-detect your ~/.ssh/id_ed255
-# accept default, then y to save
+# Choose key-based auth → auto-detect ~/.ssh/id_ed25519
+# accept defaults → y
 ```
 
 Test:
 
 ```bash
 rclone lsd pi:
-# Expect to see your home directories, or use explicit path with pi:notes
 ```
 
-> Alternatively (not required), direct `rsync` over SSH works too. See Appendix A.
+---
 
-### Autosync script (debounced, dual-target, safe)
+### Autosync script (with manual sync support)
 
-This script watches `~/notes` and, after a short debounce, does:
+Script handles:
 
 - Git add/commit
-- `rclone sync` -> Onedrive
-- `rclone sync` -> Raspberry Pi
-- Skips `.git/` and Obsidian's cache for speed
-- Prevents overlapping runs(lockfile)
+- `rclone sync` → OneDrive
+- _(Optional, commented)_ `rclone sync` → Raspberry Pi
+- Debounce so multiple edits get batched
+- Prevents overlapping runs (lockfile)
+- Manual trigger supported
 
-Create the script at `~/.local/bin/notes_autosync.sh`:
+Create at `~/.local/bin/notes_autosync.sh`:
 
 ```bash
 mkdir -p ~/.local/bin ~/.local/state/notes-sync
@@ -139,8 +155,8 @@ set -euo pipefail
 # ====== CONFIG ======
 NOTES_DIR="$HOME/notes"
 ONEDRIVE_REMOTE="onedrive:notes"
-PI_REMOTE="pi:notes"          # or pi:/home/pi/notes
-DEBOUNCE=5                     # seconds to wait after last change
+PI_REMOTE="pi:notes"   # Raspberry Pi remote (disabled for now)
+DEBOUNCE=5
 LOGDIR="$HOME/.local/state/notes-sync"
 LOGFILE="$LOGDIR/notes-sync.log"
 LOCKFILE="$LOGDIR/sync.lock"
@@ -152,7 +168,6 @@ mkdir -p "$LOGDIR"
 log(){ echo "$(date '+%F %T') | $*" | tee -a "$LOGFILE"; }
 
 sync_once(){
-  # Prevent concurrent syncs
   exec 9>"$LOCKFILE" || true
   flock -n 9 || { log "sync already running, skipping"; return 0; }
 
@@ -162,13 +177,20 @@ sync_once(){
   log "rclone → OneDrive"
   rclone sync "$NOTES_DIR" "$ONEDRIVE_REMOTE" "${RCLONE_FLAGS[@]}" | tee -a "$LOGFILE"
 
-  log "rclone → RaspberryPi"
-  rclone sync "$NOTES_DIR" "$PI_REMOTE" "${RCLONE_FLAGS[@]}" | tee -a "$LOGFILE"
+  # --- Raspberry Pi sync (uncomment once Pi is ready) ---
+  # log "rclone → Raspberry Pi"
+  # rclone sync "$NOTES_DIR" "$PI_REMOTE" "${RCLONE_FLAGS[@]}" | tee -a "$LOGFILE"
 
   log "sync complete"
 }
 
-# Initial one-off to ensure destinations exist
+# If manual run requested
+if [[ "${1:-}" == "--once" ]]; then
+  sync_once
+  exit 0
+fi
+
+# Initial one-off
 sync_once || true
 
 # Debounced watcher
@@ -179,7 +201,6 @@ inotifywait -mrq -e close_write,modify,create,delete,move --format '%w%f' "$NOTE
 do
   NOW=$(date +%s)
   LAST_CHANGE=$NOW
-  # Run a debounced sync in the background if not already queued
   if [ ! -f "$LOGDIR/.timer" ]; then
     touch "$LOGDIR/.timer"
     (
@@ -197,17 +218,38 @@ do
 done
 ```
 
-Make it executable:
+Make executable:
 
 ```bash
 chmod +x ~/.local/bin/notes_autosync.sh
 ```
 
-> Tip: change `DEBOUNCE` to `2`-`10` seconds to taste. Lower = more frequent cloud pushes.
+---
+
+### Manual sync
+
+Run manually anytime:
+
+```bash
+~/.local/bin/notes_autosync.sh --once
+```
+
+Add a shell alias for convenience:
+
+```bash
+echo 'alias syncnotes="$HOME/.local/bin/notes_autosync.sh --once"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Now you can just:
+
+```bash
+syncnotes
+```
+
+---
 
 ### Run at login (systemd user service)
-
-Create service file:
 
 ```bash
 mkdir -p ~/.config/systemd/user
@@ -216,7 +258,7 @@ vim ~/.config/systemd/user/notes_autosync.service
 
 Paste:
 
-```bash
+```ini
 [Unit]
 Description=Auto-sync notes (OneDrive + Raspberry Pi)
 After=network-online.target
@@ -232,119 +274,75 @@ Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 WantedBy=default.target
 ```
 
-Enable + Start :
+Enable:
 
 ```bash
 systemctl --user daemon-reload
 systemctl --user enable --now notes_autosync.service
 ```
 
-Optional: Keep running even without active GUI login:
-
-```bash
-loginctl enable-linger "$USER"
-```
-
-Status & logs:
-
-```bash
-systemctl --user status notes_autosync.service
-journalctl --user -u ntoes_autosync.service -f
-```
+---
 
 ### Android Setup (Two-way sync + Obsidian Mobile)
 
-**Goal:** Keep a local copy of your vault on Android for fast, offline editing in Obsidian Mobile, mirrored to OneDrive
+1. Install: **Obsidian**, **FolderSync** (or Autosync for OneDrive)
+2. Create sync pair:
+   - Remote: `/notes` (OneDrive)
+   - Local: `/storage/emulated/0/Documents/Notes`
+   - Mode: **Two-way**
+   - Enable sync on file change
+   - Run first sync
 
-1. **Install Apps**
-   - Obsidian
-   - FolderSync (Lite is fine) or Autosync for Onedrive (MetaCtrl)
-   - (Optional): A Markdown editor like `Markor` if you prefer.
+3. Open vault in Obsidian Mobile → point to `/storage/emulated/0/Documents/Notes`
 
-2. Create the phone <-> OneDrive sync pair
-   - Using **FolderSync** (steps are similar in Autosync):
-     1. Add **Account -> Microsoft OneDrive -> signin**
-     2. **Create Sync -> Two way**
-     3. Remote folder: `/notes`
-     4. Local folder: `/storage/emulated/0/Documents/Notes` (or your choice)
-     5. Options -> enable **Sync on file change** (near real-time) -> background sync
-     6. Run one **manual sync** to pull existing notes.
-
-3. Open the vault in Obsidian Mobile
-   1. Open Obsidian -> **Open folder as vault**
-   2. Pick `/storage/emulated/0/Documents/Notes`
-   3. Install plugins you like (Tasks, Calendar, etc.)
-
-   > Phone edits -> OneDrive -> Desktop (picked up by your autosync). Desktop edits -> OneDrive -> Phone(FolderSync watches and pulls)
-
-### Obsidian + Neovim tips:
-
-- In Neovim, consider:
-  - `epwalsh/obsidian.nvim` or `renerocksai/telekasten.nvim`
-  - `iamcco/mardown-preview.nvim` or terminal `glow` for previews
-
-- In Obsidian Deskop:
-  - Open `~/notes` as vault.
-  - Enable Daily Notes, Templates and any plugins you prefer.
+---
 
 ### Testing checklist
 
-1. Desktop -> OneDrive
+1. **Desktop → OneDrive**
 
    ```bash
-   echo "test $(date)" >> ~/notes/hello.md
-   # within a few seconds
-   rclone ls onedrive:notes | grep hello.md
+   echo "test $(date)" >> ~/notes/test.md
+   rclone ls onedrive:notes | grep test.md
    ```
 
-2. Desktop -> Pi
+2. **Desktop → Pi** _(later, once Pi enabled)_
 
    ```bash
-   rclone ls pi:notes | grep hello.md
+   rclone ls pi:notes | grep test.md
    ```
 
-3. Phone -> Desktop
-   - Edit a note in Obsidian Mobile -> wait for FolderSync push
-   - Confirm file updated locally on desktop and committed in `git log`
+3. **Phone → Desktop**
+   - Edit file in Obsidian Mobile
+   - Wait for FolderSync push
+   - Confirm update in `git log` on desktop
+
+4. **Manual sync works**
+
+   ```bash
+   syncnotes
+   ```
+
+---
 
 ### Troubleshooting
 
-- I don’t see notes in OneDrive app
-  - Run once: `rclone mkdir onedrive:notes && rclone sync ~/notes onedrive:notes`
+- No `notes` folder in OneDrive → run `rclone mkdir onedrive:notes`
+- Too many syncs → raise `DEBOUNCE` to 10–15
+- Conflicts → Obsidian “File Recovery” + Git history
+- Pi auth fails → recheck SSH key + remote config
+- Service didn’t start → `systemctl --user status notes_autosync.service`
 
-- Script too chatty / too frequent
-  - Increase `DEBOUNCE` to 10–15 seconds
+---
 
-- Avoid syncing caches
-  - Add more excludes to `RCLONE_FLAGS`, e.g. `--exclude "node_modules/**`"
+### MacOS / Windows notes
 
-- Permission denied on Pi
-  - Ensure the pi user owns /home/pi/notes and you copied your SSH key
+- macOS → use `fswatch` instead of `inotify-tools`
+- Windows → run inside WSL2
 
-- Service didn’t start
-  - Check `systemctl --user status notes_autosync.service`
+---
 
-- Conflict resolution
-  - Rclone uses timestamps/size by default. If you often edit on multiple devices simultaneously, consider enabling Obsidian’s “File recovery” plugin and keep Git history for safety.
-
-### Optional: use `rsync` instead of `rclone` for the Pi
-
-If you prefer pure `rsync` over SSH, replace the Pi step in the script with:
-
-```bash
-rsync -az --delete --exclude .git/ --exclude .obsidian/cache/ "$NOTES_DIR/" pi@<PI_HOSTNAME_OR_IP>:/home/pi/notes/
-```
-
-Pros: ubiquitos, very fast on LAN. Cons: one more tool to manage
-
-### MacOS and Windows notes
-
-> Cry about it ...
-
-- macOS: replace `inotify-tools` with `fswatch` and adjust the watcher line, or use launchd. `rclone`, `git` and the rest are the same (via Homebrew).
-- Windows: best done inside **WSL** so you can use `inotifywait` and `systemd --user` (WSLg w/ systemd on recent Ubuntu).
-
-### Uninstall / disable
+### Uninstall
 
 ```bash
 systemctl --user disable --now notes_autosync.service
@@ -352,16 +350,4 @@ rm -f ~/.config/systemd/user/notes_autosync.service
 rm -f ~/.local/bin/notes_autosync.sh
 ```
 
-### FAQs
-
-**Q: Will this sync while a file is still open in Neovim?**
--> Yes. The watcher triggers on every write/modify/close event. Your changes are captured after each write (:w), and the debounce bundles rapid edits.
-
-**Q: Do I still need Git if I have cloud + Pi?**
--> Highly recommended. Git gives you real history and easy rollbacks; cloud/Pi are storage targets.
-
-**Q: Can I encrypt sensitive notes?**
--> Yes. Consider age or gocryptfs. Rclone also supports encrypted remotes.
-
-**Q: What about Obsidian Sync?**
--> It works great, but this guide keeps you self‑hosted/cloud‑agnostic and free.
+---
