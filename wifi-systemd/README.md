@@ -88,9 +88,30 @@ to reinstall the daemon.
   sudo pacman -S linux-zen
   ```
 
+### Pro tip
+
+Add this to your `~/.bashrc` or `~/.zshrc` for instant "WTF is my Wi-fi DOINGGG" diagnostics:
+
+```bash
+alias wtf-wifi='systemctl status wifi-loop.service --no-pager; echo; journalctl -u wifi-loop.service -n 20 --no-pager'
+```
+
+Now just run:
+
+```bash
+wtf-wifi
+```
+
+And you'll get a quick dump of :
+
+- current service state
+- last 20 heartbeat log lines
+
+Perfect for when NetworkManager gaslights you with "connected" but your packets are in Narnia.
+
 ---
 
-### License
+## License
 
 MIT. Do whatever. Break your system. Ship it in your dotfiles. I don't care. YOLO
 
