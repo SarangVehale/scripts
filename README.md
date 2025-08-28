@@ -18,5 +18,8 @@ Also I've no idea on what all I've in here. So go ahead and enjoy your time, I h
 - **wifi-systemd** -> Systemd service that slaps your Wifi-card awake whenever it decides to take a nap.
 <!-- FOLDER-LIST-END -->
 
-P.S: Descriptions auto-generated from each folder's `DESCRIPTION` file.
+**P.S:** Descriptions auto-generated from each folder's `DESCRIPTION` file.
+
+---
+
 Cheers!!
