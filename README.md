@@ -13,6 +13,7 @@ Also I've no idea on what all I've in here. So go ahead and enjoy your time, I h
 - **notes_autosync** -> Autosync notes across devices "Arch -> Remote -> Android"
 - **remap_keys_bundle** -> Remap your **Caps Lock** key to act as the **Super/Windows/Command key**, across:
 - **rogx13** -> Installs utilities and essentials for RogFlow X13
+- **update_readme** -> Script that helps pull DESCRIPTION for each folder and update the `/` readme
 - **wallpaper-sorter** -> Sorts wallpapers into day and night
 - **wifi-systemd** -> Systemd service that slaps your Wifi-card awake whenever it decides to take a nap.
 <!-- FOLDER-LIST-END -->
