@@ -1,0 +1,11 @@
+/var/log/wifi-loop/log {
+  daily
+  rotate 7
+  compress
+  missingok
+  notifempty
+  create 644 root root
+  postrotate
+    systemctl kill -s HUP wifi-loop.service > /dev/null 2>&1 || true
+  endscript
+}

@@ -1,0 +1,16 @@
+[Unit]
+Description=Wifi Auto-Reconnect Loop with Driver Reset 
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/wifi-loop.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier-wifi-loop
+
+[Install]
+WantedBy=multi-user.target
+
+
