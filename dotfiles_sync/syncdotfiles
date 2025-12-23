@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ===================== CONFIG =====================
+DOT_GIT_DIR="${DOTFILES_DIR:-$HOME/.dotfiles}"
+WORK_TREE="$HOME"
+GIT_BIN="${GIT_BIN:-/usr/bin/git}"
+GIT="$GIT_BIN --git-dir=$DOT_GIT_DIR --work-tree=$WORK_TREE"
+
+LOGDIR="$HOME/.local/log"
+LOGFILE="$LOGDIR/dotfilesync.log"
+LOCKFILE="${XDG_RUNTIME_DIR:-/tmp}/dotfilesync.lock"
+
+BRANCH="main"
+MAX_LOG_SIZE=$((10 * 1024 * 1024)) # 10MB
+
+TRACKED_PATHS=(
+	".config/hypr"
+	".config/waybar"
+	".config/kitty"
+	".config/dunst"
+	".config/tofi"
+	".config/wlogout"
+	".config/qutebrowser"
+	".config/gtk-3.0"
+	".config/gtk-4.0"
+	".config/qt5ct"
+	".config/htop"
+	".config/mpv"
+	".config/vlc"
+	".config/wireplumber"
+	".config/systemd"
+	".config/wallpaper-config"
+	".config/mimeapps.list"
+	".config/QtProject.conf"
+	".config/user-dirs.dirs"
+	".config/user-dirs.locale"
+	".config/.gsd-keyboard.settings-ported"
+	".local/bin"
+)
+
+# ===================== FLAGS =====================
+DRY_RUN=false
+FORCE=false
+VERBOSE=true # always verbose by default
+
+# ===================== LOGGING =====================
+mkdir -p "$LOGDIR"
+
+rotate_logs() {
+	if [[ -f "$LOGFILE" ]]; then
+		local size
+		size=$(stat -c%s "$LOGFILE" 2>/dev/null || echo 0)
+		if [[ $size -gt $MAX_LOG_SIZE ]]; then
+			mv "$LOGFILE" "$LOGFILE.old"
+		fi
+	fi
+}
+
+log() {
+	printf "[%s] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$LOGFILE"
+}
+
+die() {
+	log "ERROR: $*"
+	exit 1
+}
+
+# ===================== LOCKING =====================
+exec 9>"$LOCKFILE" || die "Unable to create lockfile"
+flock -n 9 || {
+	log "Another dotfiles sync is already running"
+	exit 0
+}
+
+# ===================== DEPENDENCIES =====================
+command -v git >/dev/null || die "git not found"
+[[ -x "$GIT_BIN" ]] || die "git binary not executable"
+
+rotate_logs
+log "========== dotfiles sync started =========="
+
+# ===================== INIT REPO =====================
+if [[ ! -d "$DOT_GIT_DIR" ]]; then
+	log "Initializing bare dotfiles repository"
+	$GIT_BIN init --bare "$DOT_GIT_DIR"
+fi
+
+$GIT config --local status.showUntrackedFiles no
+
+# ===================== REMOTE CHECK =====================
+if ! $GIT remote | grep -q '^origin$'; then
+	log "No remote 'origin' configured"
+
+	if [[ "$FORCE" == true ]]; then
+		die "Remote missing and --force specified"
+	fi
+
+	echo
+	echo "No Git remote configured."
+	echo "1) Add remote now"
+	echo "2) Exit and add manually"
+	read -rp "Choose [1/2]: " choice
+
+	case "$choice" in
+	1)
+		read -rp "Enter remote URL: " remote_url
+		[[ -z "$remote_url" ]] && die "Remote URL cannot be empty"
+		$GIT remote add origin "$remote_url"
+		log "Remote 'origin' added: $remote_url"
+		;;
+	*)
+		log "Exiting for manual remote configuration"
+		exit 0
+		;;
+	esac
+fi
+
+# ===================== VERBOSE PREVIEW =====================
+log "The following paths will be considered for sync:"
+found_any=false
+
+for path in "${TRACKED_PATHS[@]}"; do
+	if [[ -e "$WORK_TREE/$path" ]]; then
+		log "  + $path"
+		found_any=true
+	else
+		log "  - $path (missing)"
+	fi
+done
+
+[[ "$found_any" == false ]] && die "None of the tracked paths exist"
+
+if [[ "$FORCE" == false && "$DRY_RUN" == false ]]; then
+	echo
+	read -rp "Proceed with sync? [y/N]: " confirm
+	[[ "$confirm" =~ ^[Yy]$ ]] || {
+		log "Aborted by user"
+		exit 0
+	}
+fi
+
+# ===================== STAGING =====================
+log "Staging files"
+for path in "${TRACKED_PATHS[@]}"; do
+	if [[ -e "$WORK_TREE/$path" ]]; then
+		if [[ "$DRY_RUN" == true ]]; then
+			log "[DRY-RUN] Would stage $path"
+		else
+			$GIT add "$path"
+		fi
+	fi
+done
+
+# ===================== COMMIT & SYNC =====================
+if $GIT diff --cached --quiet; then
+	log "No changes to commit"
+else
+	HOST="$(hostname)"
+	MSG="dotfiles: sync ($HOST) $(date '+%Y-%m-%d %H:%M')"
+
+	if [[ "$DRY_RUN" == true ]]; then
+		log "[DRY-RUN] Would commit: $MSG"
+		$GIT diff --cached --stat
+	else
+		log "Pulling from origin (fast-forward only)"
+		$GIT pull --ff-only origin "$BRANCH"
+
+		log "Creating commit"
+		$GIT commit -m "$MSG" | tee -a "$LOGFILE"
+
+		log "Pushing to origin"
+		$GIT push -u origin "$BRANCH" | tee -a "$LOGFILE"
+	fi
+fi
+
+log "========== dotfiles sync complete =========="

@@ -10,6 +10,7 @@ Also I've no idea on what all I've in here. So go ahead and enjoy your time, I h
 <!-- FOLDER-LIST-START -->
 - **backup_arch_script** -> Backup Arch linux dotfiles and some imp dirs
 - **barrier-kvm** -> Setup barrier kvm server and setup it's service
+- **dotfiles_sync** -> (no description yet)
 - **notes_autosync** -> Autosync notes across devices "Arch -> Remote -> Android"
 - **remap_keys_bundle** -> Remap your **Caps Lock** key to act as the **Super/Windows/Command key**, across:
 - **rogx13** -> Installs utilities and essentials for RogFlow X13
