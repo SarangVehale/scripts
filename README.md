@@ -8,6 +8,7 @@ Also I've no idea on what all I've in here. So go ahead and enjoy your time, I h
 ## Script folders
 
 <!-- FOLDER-LIST-START -->
+- **anomaly** -> (no description yet)
 - **backup_arch_script** -> Backup Arch linux dotfiles and some imp dirs
 - **barrier-kvm** -> Setup barrier kvm server and setup it's service
 - **dotfiles_sync** -> (no description yet)
